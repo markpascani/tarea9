@@ -5,6 +5,7 @@
 package com.mycompany.tarea9;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.util.Scanner;
 import java.io.IOException;
 
@@ -13,6 +14,17 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 import org.w3c.dom.DOMImplementation;
 import org.w3c.dom.Document;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import org.w3c.dom.DOMException;
+import org.w3c.dom.Element;
+import org.w3c.dom.Text;
 
 /**
  *
@@ -21,7 +33,7 @@ import org.w3c.dom.Document;
 public class TransformadorSRTaXML {
 
     private File ficheroSRT;
-    private File ficheroXML;
+    private final File ficheroXML = new File("subtitulos.xml");
     private Scanner sc;
 
     /**
@@ -58,14 +70,6 @@ public class TransformadorSRTaXML {
         return ficheroXML;
     }
 
-    /**
-     * Setter del fichero XML
-     *
-     * @param ficheroXML
-     */
-    public void setFicheroXML(File ficheroXML) {
-        this.ficheroXML = ficheroXML;
-    }
 
     /**
      * Método que pregunta al usuario la ruta del fichero srt y crea una
@@ -94,17 +98,59 @@ public class TransformadorSRTaXML {
         }
     }
 
-    public void crearFicheroXML() {
+    public void crearFicheroXML(List<Subtitulo> subtitulos) throws IOException {
+        if(!ficheroXML.exists()){
+            ficheroXML.createNewFile();
+            System.out.println("Fichero XML vacío creado.");
+        }
+        
+        
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             DOMImplementation impl = builder.getDOMImplementation();
             Document documento = impl.createDocument(null, "subtitulos", null);
-        } catch (ParserConfigurationException e) {
+            
+            Element root = documento.getDocumentElement();
+            
+            
+            for(Subtitulo subtitulo: subtitulos){
+                crearNodoSubtitulo(documento, subtitulo, root);
+            }
+            
+            Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            DOMSource source = new DOMSource(documento);
+            StreamResult result = new StreamResult(new FileWriter(ficheroXML));
+            
+            transformer.transform(source, result);
+            
+        } catch (ParserConfigurationException | TransformerException e) {
             e.printStackTrace();
-
         }
 
     }
 
+    private void crearNodoSubtitulo(Document documento, Subtitulo subtitulo, Element root) throws DOMException {
+        Element subti = documento.createElement("subtitulo");
+        Text texto = documento.createTextNode(subtitulo.getTexto());
+        subti.appendChild(texto);
+        subti.setAttribute("numero", String.valueOf(subtitulo.getNumero()));
+        subti.setAttribute("inicio", subtitulo.getInicio());
+        subti.setAttribute("fin", subtitulo.getFin());
+        root.appendChild(subti);
+    }
+    
+    public static void main (String[] args){
+        Scanner sc = new Scanner(System.in);
+        TransformadorSRTaXML transf = new TransformadorSRTaXML(sc);
+        
+        transf.solicitarRutaFicheroSRT("Escribe la ruta del fichero .srt. ");
+        GestionSubtitulos gestion = new GestionSubtitulos(transf.getFicheroSRT());
+        
+        try {
+            transf.crearFicheroXML(gestion.getSubtitulo());
+        } catch (IOException ex) {
+            Logger.getLogger(TransformadorSRTaXML.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 }
